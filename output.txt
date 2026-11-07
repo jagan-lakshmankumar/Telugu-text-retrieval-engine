@@ -1,0 +1,100 @@
+Telugu Positional Index — Assignment Output
+============================================
+Roll No   : S20240010189
+Language  : Telugu (తెలుగు)
+Dataset   : Telugu Wikipedia (te.wikipedia.org) articles
+Index dir : generated_index/   (vocabulary.tsv + postings.dat)
+Smoke test: src/sample_corpus/ (10 original documents, 64 terms)
+
+
+=== PART A: Ten Rare Telugu Terms (DF = 1) ===
+Vocabulary in RAM; individual postings fetched by byte-offset from disk.
+Format: term, DF (document frequency), CF (collection frequency), postings
+
+Wikipedia dataset run (100 articles, 562 vocabulary terms):
+
+ 1. term=అమలయింది,       DF=1, CF=1, postings={wiki183=[2]}
+ 2. term=ద్వారా,          DF=1, CF=1, postings={wiki135=[2]}
+ 3. term=లైను,            DF=1, CF=1, postings={wiki174=[1]}
+ 4. term=మొదలుపెట్టిన,   DF=1, CF=1, postings={wiki205=[3]}
+ 5. term=వాడుకరులను,     DF=1, CF=1, postings={wiki195=[8]}
+ 6. term=రాయదగిన,        DF=1, CF=1, postings={wiki1=[39]}
+ 7. term=టైపుచేయుట,      DF=1, CF=1, postings={wiki1=[112]}
+ 8. term=తీసివేసి,        DF=1, CF=1, postings={wiki109=[9]}
+ 9. term=సృష్టించుకోండి, DF=1, CF=1, postings={wiki195=[39]}
+10. term=నివారించేందుకు, DF=1, CF=1, postings={wiki195=[36]}
+
+Smoke corpus rare terms (10 documents, 64 terms):
+
+ 1. term=తెలుగు,          DF=1, CF=1, postings={doc08=[0]}
+ 2. term=హిమాలయ,          DF=1, CF=1, postings={doc03=[0]}
+ 3. term=అందిస్తుంది,     DF=1, CF=1, postings={doc06=[6]}
+ 4. term=ప్రాచీన,         DF=1, CF=1, postings={doc08=[4]}
+ 5. term=నీటిని,           DF=1, CF=1, postings={doc03=[3]}
+ 6. term=ఉపయోగపడుతుంది,  DF=1, CF=1, postings={doc04=[7]}
+ 7. term=ఉపగ్రహాలు,       DF=1, CF=1, postings={doc09=[1]}
+ 8. term=విద్యుత్,         DF=1, CF=1, postings={doc02=[3]}
+ 9. term=శక్తి,            DF=1, CF=1, postings={doc02=[1]}
+10. term=కృత్రిమ,          DF=1, CF=1, postings={doc04=[0]}
+
+
+=== PART B: Five Functional Test Cases ===
+All tests use src/sample_corpus and a temporary in-memory index.
+Run: .\build-and-test.ps1
+
+Test 1 — PASS
+  Description : Rare-term DF check
+  Query       : metadata("క్వాంటం").df()
+  Expected    : 1
+  Got         : 1
+  Doc/Position: {doc06=[0]}
+  Explanation : "క్వాంటం" (Quantum) appears only in doc06 at position 0.
+
+Test 2 — PASS
+  Description : Collection-frequency check for a common term
+  Query       : metadata("భారతదేశం").cf()
+  Expected    : 2
+  Got         : 2
+  Doc/Position: {doc01=[0], doc05=[0]}
+  Explanation : "భారతదేశం" (India) appears at position 0 in doc01 and doc05.
+
+Test 3 — PASS
+  Description : Exact disk-postings retrieval
+  Query       : postings("క్వాంటం").toString()
+  Expected    : {doc06=[0]}
+  Got         : {doc06=[0]}
+  Explanation : Byte-offset seek into postings.dat returns the correct record.
+
+Test 4 — PASS
+  Description : Two-word phrase query
+  Query       : phraseMatches(index, "కృత్రిమ మేధస్సు")
+  Expected    : {doc04=[0]}
+  Got         : {doc04=[0]}
+  Explanation : "కృత్రిమ" at pos 0 and "మేధస్సు" at pos 1 in doc04 → phrase match at 0.
+
+Test 5 — PASS
+  Description : Two-word phrase query (second phrase)
+  Query       : phraseMatches(index, "సౌర శక్తి")
+  Expected    : {doc02=[0]}
+  Got         : {doc02=[0]}
+  Explanation : "సౌర" at pos 0 and "శక్తి" at pos 1 in doc02 → phrase match at 0.
+
+
+=== PART C: Index Statistics ===
+Wikipedia dataset (100 articles):
+  Documents indexed : 100
+  Vocabulary size   : 562 terms  (vocabulary.tsv, held in RAM)
+  Postings file     : postings.dat (disk, seeked by byte-offset)
+
+Smoke corpus (10 documents):
+  Documents indexed : 10
+  Vocabulary size   : 64 terms
+
+Index format (postings.dat line example):
+  అమలయింది\twiki183:2
+  ← term TAB docId:pos0,pos1,...;docId2:pos0,...
+
+Index design:
+  * vocabulary.tsv — term, DF, CF, byte-offset, byte-length → loaded into TreeMap<String, Metadata>
+  * postings.dat   — seekable flat file; only the needed byte range is read per lookup
+  * No third-party libraries; pure JDK 17+
